@@ -1,0 +1,156 @@
+name: 要件定義エージェント
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  requirements:
+    if: github.event.label.name == '要件定義作成'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # blocked チェック
+      - name: Check blocked
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh issue view ${{ github.event.issue.number }} --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q "^blocked$"; then
+            echo "Issue is blocked. Skipping."
+            echo "BLOCKED=true" >> $GITHUB_ENV
+          fi
+
+      # 質問ループ回数チェック（上限2往復）
+      - name: Check question loop count
+        if: env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          # waiting-for-answer が付与された回数をコメント履歴から推定
+          LOOP_COUNT=$(gh issue view "$ISSUE_NUMBER" --json comments --jq '[.comments[].body | select(contains("確認事項があります"))] | length')
+          echo "Question loop count: $LOOP_COUNT"
+          echo "LOOP_COUNT=$LOOP_COUNT" >> $GITHUB_ENV
+          # 3回以上質問済みの場合（2往復を超えた）は即時ブロック
+          if [ "$LOOP_COUNT" -ge 3 ]; then
+            echo "Question loop limit (2) exceeded."
+            echo "LOOP_LIMIT_EXCEEDED=true" >> $GITHUB_ENV
+          fi
+
+      # 上限超過時: blocked + needs-human を付与して終了
+      - name: Handle loop limit exceeded
+        if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          gh issue edit "$ISSUE_NUMBER" \
+            --remove-label "要件定義作成" \
+            --add-label "blocked" \
+            --add-label "needs-human"
+          gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ 質問ループ上限超過
+
+**エージェント**：要件定義エージェント
+**エラー内容**：質問と回答の往復が上限（2往復）を超過しました。
+**次のアクション**：人間による要件の整理・明確化が必要です"
+
+      # in-requirements に遷移
+      - name: Transition to in-requirements
+        if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --remove-label "要件定義作成" \
+            --add-label "in-requirements"
+
+      # Claude Code Action で要件定義を実行
+      - name: Run Claude Code Requirements
+        if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED != 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            あなたは要件定義エージェントです。以下の Issue の要件を整理・確定してください。
+
+            Issue: #${{ github.event.issue.number }}
+            タイトル: ${{ github.event.issue.title }}
+            本文:
+            ${{ github.event.issue.body }}
+
+            質問往復回数: ${{ env.LOOP_COUNT }} / 2（上限）
+
+            手順:
+            1. Issue 本文と既存のコメントを読む
+            2. 要件として曖昧な点・不明点を洗い出す
+            3. 判断する:
+
+            【重要】質問往復回数が 2 以上の場合は追加の質問をしてはならない。現時点の情報で要件を確定すること。
+
+            【曖昧点・不明点がある場合 かつ 質問往復回数が 2 未満の場合】
+            - 以下のフォーマットで質問コメントを投稿する:
+              `gh issue comment ${{ github.event.issue.number }} --body "## ❓ 確認事項があります\n\n要件を確定するために以下を確認させてください。\n\n### 質問\n1. <質問内容>\n2. <質問内容>"`
+            - `in-requirements` を除去してから `waiting-for-answer` を付与する（この順序を厳守）:
+              `gh issue edit ${{ github.event.issue.number }} --remove-label "in-requirements"`
+              `gh issue edit ${{ github.event.issue.number }} --add-label "waiting-for-answer"`
+            - 処理を終了する
+
+            【曖昧点がない・要件を確定できる場合】または【質問往復回数が 2 以上の場合】
+            - 以下のフォーマットで要件確定コメントを投稿する:
+              ```
+              gh issue comment ${{ github.event.issue.number }} --body "## ✅ 要件確定\n\n..."
+              ```
+              （フォーマットは下記参照）
+            - `in-requirements` を除去してから `詳細設計作成` を付与する（この順序を厳守）:
+              `gh issue edit ${{ github.event.issue.number }} --remove-label "in-requirements"`
+              `gh issue edit ${{ github.event.issue.number }} --add-label "詳細設計作成"`
+
+            要件確定コメントのフォーマット:
+            ```
+            ## ✅ 要件確定
+
+            ### 機能要件
+            - <確定した機能要件1>
+            - <確定した機能要件2>
+
+            ### 非機能要件
+            - <確定した非機能要件>
+
+            ### 制約条件
+            - <制約事項>
+
+            ### 対象外
+            - <スコープ外の項目>
+
+            ### 完了条件
+            - [ ] <具体的な完了基準1>
+            - [ ] <具体的な完了基準2>
+            ```
+
+            重要:
+            - `in-requirements` を残存させてはならない（監視エージェントの誤検知を防ぐ）
+            - `in-requirements` の除去は次のラベル付与より必ず先に行うこと
+            - 質問は2往復が上限（ワークフローが管理）
+
+      # 失敗時: in-requirements 除去・blocked 付与・コメント
+      - name: Handle failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --remove-label "in-requirements" \
+            --add-label "blocked" || true
+          gh issue comment ${{ github.event.issue.number }} --body "## ⚠️ エージェント処理失敗
+
+**エージェント**：要件定義エージェント
+**エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
+**次のアクション**：人間による確認・対応が必要です"

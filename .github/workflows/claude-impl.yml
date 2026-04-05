@@ -1,0 +1,179 @@
+name: 実装エージェント
+
+on:
+  issues:
+    types: [labeled]
+  pull_request:
+    types: [labeled]
+
+jobs:
+  implement:
+    if: |
+      (github.event_name == 'issues' && github.event.label.name == 'ready-for-impl') ||
+      (github.event_name == 'pull_request' && github.event.label.name == 'needs-fix')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # blocked チェック: blocked ラベルがある場合は BLOCKED=true を環境変数に設定
+      - name: Check blocked (Issue trigger)
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh issue view ${{ github.event.issue.number }} --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q "^blocked$"; then
+            echo "Issue is blocked. Skipping."
+            echo "BLOCKED=true" >> $GITHUB_ENV
+          fi
+
+      - name: Check blocked (PR trigger)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q "^blocked$"; then
+            echo "PR is blocked. Skipping."
+            echo "BLOCKED=true" >> $GITHUB_ENV
+          fi
+
+      # Issue トリガー: ready-for-impl を除去して in-impl を付与
+      - name: Transition to in-impl (Issue trigger)
+        if: github.event_name == 'issues' && env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} --remove-label "ready-for-impl" --add-label "in-impl"
+
+      # Issue トリガー: 実装ブランチを作成
+      - name: Create branch (Issue trigger)
+        if: github.event_name == 'issues' && env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+          SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50)
+          BRANCH="impl/issue-${ISSUE_NUMBER}-${SLUG}"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+
+      # PR トリガー: needs-fix を除去して関連 Issue に in-impl を付与
+      - name: Transition to in-impl (PR trigger)
+        if: github.event_name == 'pull_request' && env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          gh pr edit $PR_NUMBER --remove-label "needs-fix"
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          ISSUE_NUMBER=$(echo "$BRANCH" | grep -oP '(?<=issue-)\d+')
+          if [ -n "$ISSUE_NUMBER" ]; then
+            gh issue edit "$ISSUE_NUMBER" --add-label "in-impl"
+            echo "ISSUE_NUMBER=$ISSUE_NUMBER" >> $GITHUB_ENV
+          fi
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      # Claude Code Action で実装を実行（Issue トリガー）
+      - name: Run Claude Code (Issue trigger)
+        if: github.event_name == 'issues' && env.BLOCKED != 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.BRANCH }}
+          prompt: |
+            あなたは実装エージェントです。以下の Issue を実装してください。
+
+            Issue: #${{ github.event.issue.number }}
+            タイトル: ${{ github.event.issue.title }}
+            本文:
+            ${{ github.event.issue.body }}
+
+            実装方針:
+            1. docs/${{ github.event.issue.number }}-design.md が存在する場合は必ず参照する
+            2. CLAUDE.md のエージェント共通ルールに従う
+            3. 実装完了後、変更をコミットする（コミットメッセージ: feat: <変更内容の要約>）
+            4. PR は作成しない（次のステップで自動作成される）
+
+      # Claude Code Action で修正を実行（PR トリガー）
+      - name: Run Claude Code (PR trigger)
+        if: github.event_name == 'pull_request' && env.BLOCKED != 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.BRANCH }}
+          prompt: |
+            あなたは実装エージェントです。PR のレビュー指摘を修正してください。
+
+            PR: #${{ github.event.pull_request.number }}
+            関連 Issue: #${{ env.ISSUE_NUMBER }}
+
+            レビューコメントを確認し、指摘されたすべての問題を修正してください。
+            修正後、変更をコミットしてください（コミットメッセージ: fix: <修正内容の要約>）。
+
+      # Issue トリガー: PR を作成して ready-for-review を付与、in-impl を除去
+      - name: Create PR and label (Issue trigger)
+        if: github.event_name == 'issues' && env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=$(gh pr create \
+            --head "${{ env.BRANCH }}" \
+            --base main \
+            --title "impl: #${{ github.event.issue.number }} ${{ github.event.issue.title }}" \
+            --body "Closes #${{ github.event.issue.number }}" \
+            --label "ai-generated")
+          PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
+          gh pr edit "$PR_NUMBER" --add-label "ready-for-review"
+          gh issue edit ${{ github.event.issue.number }} --remove-label "in-impl"
+
+      # PR トリガー: ready-for-review を付与して in-impl を除去
+      - name: Re-label for review (PR trigger)
+        if: github.event_name == 'pull_request' && env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --add-label "ready-for-review"
+          if [ -n "${{ env.ISSUE_NUMBER }}" ]; then
+            gh issue edit "${{ env.ISSUE_NUMBER }}" --remove-label "in-impl"
+          fi
+
+      # 失敗時: in-impl 除去・blocked 付与・コメント
+      - name: Handle failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            gh issue edit ${{ github.event.issue.number }} --remove-label "in-impl" --add-label "blocked"
+            gh issue comment ${{ github.event.issue.number }} --body "## ⚠️ エージェント処理失敗
+
+**エージェント**：実装エージェント
+**エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
+**次のアクション**：人間による確認・対応が必要です"
+          else
+            # PR パス: PR に blocked を付与し、関連 Issue の in-impl も除去する
+            gh pr edit ${{ github.event.pull_request.number }} --add-label "blocked"
+            if [ -n "${{ env.ISSUE_NUMBER }}" ]; then
+              gh issue edit "${{ env.ISSUE_NUMBER }}" --remove-label "in-impl" --add-label "blocked"
+            fi
+            gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ エージェント処理失敗
+
+**エージェント**：実装エージェント（差し戻し修正）
+**エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
+**次のアクション**：人間による確認・対応が必要です"
+          fi

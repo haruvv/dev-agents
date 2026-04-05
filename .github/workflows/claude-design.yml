@@ -1,0 +1,119 @@
+name: 設計エージェント
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  design:
+    if: github.event.label.name == '詳細設計作成'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # blocked チェック
+      - name: Check blocked
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh issue view ${{ github.event.issue.number }} --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q "^blocked$"; then
+            echo "Issue is blocked. Skipping."
+            echo "BLOCKED=true" >> $GITHUB_ENV
+          fi
+
+      # in-design に遷移
+      - name: Transition to in-design
+        if: env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --remove-label "詳細設計作成" \
+            --add-label "in-design"
+
+      # Claude Code Action で設計書を生成
+      - name: Run Claude Code Design
+        if: env.BLOCKED != 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            あなたは設計エージェントです。以下の Issue の設計書を作成してください。
+
+            Issue: #${{ github.event.issue.number }}
+            タイトル: ${{ github.event.issue.title }}
+            本文:
+            ${{ github.event.issue.body }}
+
+            手順:
+            1. Issue 本文の要件確定コメント（要件定義エージェントが投稿したもの）を確認する
+            2. 以下のフォーマットで設計書を `docs/${{ github.event.issue.number }}-design.md` に作成する:
+
+            ```markdown
+            # 設計書：${{ github.event.issue.title }}
+
+            **対象 Issue**：#${{ github.event.issue.number }}
+            **作成日**：<YYYY-MM-DD>
+
+            ## 目的・背景
+            （Issue の目的と背景）
+
+            ## 実装方針
+            （具体的な実装アプローチ）
+
+            ## 制約条件
+            （守るべき制約・禁止事項）
+
+            ## 作業分割方針
+            （タスク分割エージェントへの指示：何をどう分割するか）
+
+            ## 検証方法
+            （実装の正しさをどう検証するか）
+            ```
+
+            3. 設計書をコミットしてプッシュする:
+               ```
+               git config user.name "github-actions[bot]"
+               git config user.email "github-actions[bot]@users.noreply.github.com"
+               git add docs/${{ github.event.issue.number }}-design.md
+               git commit -m "docs: add design for issue #${{ github.event.issue.number }}"
+               git push origin main
+               ```
+
+            4. Issue に設計書 URL をコメントする:
+               `gh issue comment ${{ github.event.issue.number }} --body "## ✅ 設計書作成完了\n\n設計書を作成しました: [docs/${{ github.event.issue.number }}-design.md](../blob/main/docs/${{ github.event.issue.number }}-design.md)"`
+
+            5. `in-design` を除去してから `タスク分割` ラベルを付与する（この順序を厳守）:
+               ```
+               gh issue edit ${{ github.event.issue.number }} --remove-label "in-design"
+               gh issue edit ${{ github.event.issue.number }} --add-label "タスク分割"
+               ```
+
+            重要:
+            - `in-design` を残存させてはならない（監視エージェントの誤検知を防ぐ）
+            - `in-design` の除去は `タスク分割` 付与より必ず先に行うこと
+            - docs/ ディレクトリが存在しない場合は作成すること
+
+      # 失敗時: in-design 除去・blocked 付与・コメント
+      - name: Handle failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --remove-label "in-design" \
+            --add-label "blocked" || true
+          gh issue comment ${{ github.event.issue.number }} --body "## ⚠️ エージェント処理失敗
+
+**エージェント**：設計エージェント
+**エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
+**次のアクション**：人間による確認・対応が必要です"
