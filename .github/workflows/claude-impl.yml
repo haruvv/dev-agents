@@ -147,9 +147,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr edit ${{ github.event.pull_request.number }} --add-label "ready-for-review"
-          if [ -n "${{ env.ISSUE_NUMBER }}" ]; then
-            gh issue edit "${{ env.ISSUE_NUMBER }}" --remove-label "in-impl"
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          gh pr edit "$PR_NUMBER" --add-label "ready-for-review"
+          ISSUE_NUMBER="${{ env.ISSUE_NUMBER }}"
+          # ブランチ名から抽出できなかった場合は PR 本文の "Closes #<n>" から取得
+          if [ -z "$ISSUE_NUMBER" ]; then
+            ISSUE_NUMBER=$(gh pr view "$PR_NUMBER" --json body --jq '.body' | grep -oP '(?<=#)\d+' | head -1)
+          fi
+          if [ -n "$ISSUE_NUMBER" ]; then
+            gh issue edit "$ISSUE_NUMBER" --remove-label "in-impl"
           fi
 
       # 失敗時: in-impl 除去・blocked 付与・コメント
