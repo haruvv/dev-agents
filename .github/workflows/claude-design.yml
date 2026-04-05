@@ -42,11 +42,11 @@ jobs:
       # Claude Code Action で設計書を生成
       - name: Run Claude Code Design
         if: env.BLOCKED != 'true'
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          direct_prompt: |
+          prompt: |
             あなたは設計エージェントです。以下の Issue の設計書を作成してください。
 
             Issue: #${{ github.event.issue.number }}

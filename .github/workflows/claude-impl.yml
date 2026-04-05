@@ -89,12 +89,12 @@ jobs:
       # Claude Code Action で実装を実行（Issue トリガー）
       - name: Run Claude Code (Issue trigger)
         if: github.event_name == 'issues' && env.BLOCKED != 'true'
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH }}
-          direct_prompt: |
+          prompt: |
             あなたは実装エージェントです。以下の Issue を実装してください。
 
             Issue: #${{ github.event.issue.number }}
@@ -111,12 +111,12 @@ jobs:
       # Claude Code Action で修正を実行（PR トリガー）
       - name: Run Claude Code (PR trigger)
         if: github.event_name == 'pull_request' && env.BLOCKED != 'true'
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH }}
-          direct_prompt: |
+          prompt: |
             あなたは実装エージェントです。PR のレビュー指摘を修正してください。
 
             PR: #${{ github.event.pull_request.number }}
