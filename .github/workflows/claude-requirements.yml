@@ -53,6 +53,7 @@ jobs:
           ISSUE_NUMBER=${{ github.event.issue.number }}
           gh issue edit "$ISSUE_NUMBER" \
             --remove-label "要件定義作成" \
+            --remove-label "in-requirements" \
             --add-label "blocked" \
             --add-label "needs-human"
           gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ 質問ループ上限超過
