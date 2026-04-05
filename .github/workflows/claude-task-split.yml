@@ -1,4 +1,4 @@
-name: タスク分割エージェント
+name: task-split-agent
 
 on:
   issues:

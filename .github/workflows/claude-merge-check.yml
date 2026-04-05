@@ -1,4 +1,4 @@
-name: 統合判定エージェント
+name: merge-check-agent
 
 on:
   pull_request:

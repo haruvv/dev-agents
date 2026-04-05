@@ -1,4 +1,4 @@
-name: 実装エージェント
+name: impl-agent
 
 on:
   issues:
