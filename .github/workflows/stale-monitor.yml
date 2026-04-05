@@ -1,0 +1,245 @@
+name: 監視エージェント
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 更新停滞検知: Issue の in-* ラベルで最終更新から4時間以上経過したものを処理
+      - name: Detect stale Issues with in-* labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 最終更新から4時間（240分）以上経過した閾値
+          STALE_THRESHOLD_MINUTES=240
+          NOW=$(date -u +%s)
+
+          # in-* ラベルを持つ open Issue を取得
+          IN_LABELS=("in-requirements" "in-design" "in-task-split" "in-impl")
+
+          for LABEL in "${IN_LABELS[@]}"; do
+            echo "Checking issues with label: $LABEL"
+
+            ISSUES=$(gh issue list \
+              --label "$LABEL" \
+              --state open \
+              --json number,updatedAt,labels \
+              --limit 50)
+
+            echo "$ISSUES" | jq -c '.[]' | while read -r ISSUE; do
+              ISSUE_NUMBER=$(echo "$ISSUE" | jq -r '.number')
+              UPDATED_AT=$(echo "$ISSUE" | jq -r '.updatedAt')
+              UPDATED_TS=$(date -u -d "$UPDATED_AT" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED_AT" +%s)
+              ELAPSED_MINUTES=$(( (NOW - UPDATED_TS) / 60 ))
+
+              echo "Issue #$ISSUE_NUMBER: last updated $ELAPSED_MINUTES minutes ago (label: $LABEL)"
+
+              if [ "$ELAPSED_MINUTES" -lt "$STALE_THRESHOLD_MINUTES" ]; then
+                continue
+              fi
+
+              # blocked ラベルチェック: blocked がある場合はスキップ
+              HAS_BLOCKED=$(echo "$ISSUE" | jq -r '.labels[].name' | grep -c "^blocked$" || true)
+              if [ "$HAS_BLOCKED" -gt 0 ]; then
+                echo "Issue #$ISSUE_NUMBER has blocked label. Skipping."
+                continue
+              fi
+
+              # 自動回復回数チェック（コメント履歴から推定）
+              RECOVERY_COUNT=$(gh issue view "$ISSUE_NUMBER" --json comments --jq '[.comments[].body | select(contains("自動回復"))] | length')
+              echo "Issue #$ISSUE_NUMBER: recovery count = $RECOVERY_COUNT"
+
+              if [ "$RECOVERY_COUNT" -ge 2 ]; then
+                echo "Issue #$ISSUE_NUMBER: recovery limit exceeded. Adding needs-human."
+                gh issue edit "$ISSUE_NUMBER" \
+                  --remove-label "$LABEL" \
+                  --add-label "blocked" \
+                  --add-label "needs-human"
+                gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ 自動回復上限超過
+
+**エージェント**：監視エージェント
+**検出内容**：\`$LABEL\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
+自動回復を2回実施しましたが改善されませんでした。
+**次のアクション**：人間による確認・対応が必要です"
+                continue
+              fi
+
+              # トリガーラベルの対応表に従い再起動
+              case "$LABEL" in
+                "in-requirements")
+                  TRIGGER_LABEL="要件定義作成"
+                  ;;
+                "in-design")
+                  TRIGGER_LABEL="詳細設計作成"
+                  ;;
+                "in-task-split")
+                  TRIGGER_LABEL="タスク分割"
+                  ;;
+                "in-impl")
+                  TRIGGER_LABEL="ready-for-impl"
+                  ;;
+                *)
+                  continue
+                  ;;
+              esac
+
+              echo "Issue #$ISSUE_NUMBER: restarting with label $TRIGGER_LABEL"
+              gh issue edit "$ISSUE_NUMBER" \
+                --remove-label "$LABEL" \
+                --add-label "$TRIGGER_LABEL"
+              gh issue comment "$ISSUE_NUMBER" --body "## 🔄 自動回復（更新停滞検知）
+
+**エージェント**：監視エージェント
+**検出内容**：\`$LABEL\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
+**対応**：\`$LABEL\` を除去し \`$TRIGGER_LABEL\` を付与して再起動しました。
+**自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
+            done
+          done
+
+      # 実行中停滞検知: in-impl が2時間以上経過かつ PR 未作成の Issue を処理
+      - name: Detect stale in-impl without PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IMPL_STALE_THRESHOLD_MINUTES=120
+          NOW=$(date -u +%s)
+
+          ISSUES=$(gh issue list \
+            --label "in-impl" \
+            --state open \
+            --json number,updatedAt,labels \
+            --limit 50)
+
+          echo "$ISSUES" | jq -c '.[]' | while read -r ISSUE; do
+            ISSUE_NUMBER=$(echo "$ISSUE" | jq -r '.number')
+            UPDATED_AT=$(echo "$ISSUE" | jq -r '.updatedAt')
+            UPDATED_TS=$(date -u -d "$UPDATED_AT" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED_AT" +%s)
+            ELAPSED_MINUTES=$(( (NOW - UPDATED_TS) / 60 ))
+
+            if [ "$ELAPSED_MINUTES" -lt "$IMPL_STALE_THRESHOLD_MINUTES" ]; then
+              continue
+            fi
+
+            # blocked ラベルチェック
+            HAS_BLOCKED=$(echo "$ISSUE" | jq -r '.labels[].name' | grep -c "^blocked$" || true)
+            if [ "$HAS_BLOCKED" -gt 0 ]; then
+              continue
+            fi
+
+            # 関連 PR の存在確認
+            BRANCH_PATTERN="impl/issue-${ISSUE_NUMBER}-"
+            PR_EXISTS=$(gh pr list \
+              --state open \
+              --json headRefName \
+              --jq "[.[] | select(.headRefName | startswith(\"$BRANCH_PATTERN\"))] | length")
+
+            if [ "$PR_EXISTS" -gt 0 ]; then
+              echo "Issue #$ISSUE_NUMBER: PR exists. Skipping."
+              continue
+            fi
+
+            echo "Issue #$ISSUE_NUMBER: in-impl stale without PR ($ELAPSED_MINUTES minutes)"
+
+            # 自動回復回数チェック
+            RECOVERY_COUNT=$(gh issue view "$ISSUE_NUMBER" --json comments --jq '[.comments[].body | select(contains("自動回復"))] | length')
+
+            if [ "$RECOVERY_COUNT" -ge 2 ]; then
+              gh issue edit "$ISSUE_NUMBER" \
+                --remove-label "in-impl" \
+                --add-label "blocked" \
+                --add-label "needs-human"
+              gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ 自動回復上限超過
+
+**エージェント**：監視エージェント
+**検出内容**：\`in-impl\` 付与から ${ELAPSED_MINUTES} 分が経過しましたが PR が作成されていません。
+自動回復を2回実施しましたが改善されませんでした。
+**次のアクション**：人間による確認・対応が必要です"
+            else
+              gh issue edit "$ISSUE_NUMBER" \
+                --remove-label "in-impl" \
+                --add-label "ready-for-impl"
+              gh issue comment "$ISSUE_NUMBER" --body "## 🔄 自動回復（実行中停滞検知）
+
+**エージェント**：監視エージェント
+**検出内容**：\`in-impl\` 付与から ${ELAPSED_MINUTES} 分が経過しましたが PR が作成されていません。
+**対応**：\`in-impl\` を除去し \`ready-for-impl\` を再付与して再起動しました。
+**自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
+            fi
+          done
+
+      # ループ停滞検知: blocked → トリガーの遷移が3回以上の Issue / PR を処理
+      - name: Detect loop stall
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # blocked ラベル付きの open Issue を確認
+          BLOCKED_ISSUES=$(gh issue list \
+            --label "blocked" \
+            --state open \
+            --json number \
+            --limit 50)
+
+          echo "$BLOCKED_ISSUES" | jq -c '.[]' | while read -r ISSUE; do
+            ISSUE_NUMBER=$(echo "$ISSUE" | jq -r '.number')
+
+            # needs-human が既に付与されている場合はスキップ
+            HAS_NEEDS_HUMAN=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name' | grep -c "^needs-human$" || true)
+            if [ "$HAS_NEEDS_HUMAN" -gt 0 ]; then
+              continue
+            fi
+
+            # blocked → トリガーラベル付与の遷移回数を自動回復コメント数で推定
+            RECOVERY_COUNT=$(gh issue view "$ISSUE_NUMBER" --json comments --jq '[.comments[].body | select(contains("自動回復"))] | length')
+
+            if [ "$RECOVERY_COUNT" -ge 3 ]; then
+              echo "Issue #$ISSUE_NUMBER: loop stall detected ($RECOVERY_COUNT recoveries)"
+              gh issue edit "$ISSUE_NUMBER" --add-label "needs-human"
+              gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ ループ停滞検知
+
+**エージェント**：監視エージェント
+**検出内容**：同一 Issue で自動回復が ${RECOVERY_COUNT} 回繰り返されています。
+**対応**：自動回復を停止しました。\`needs-human\` ラベルを付与しました。
+**次のアクション**：人間による根本原因の確認・対応が必要です"
+            fi
+          done
+
+          # blocked ラベル付きの open PR も確認
+          BLOCKED_PRS=$(gh pr list \
+            --label "blocked" \
+            --state open \
+            --json number \
+            --limit 50)
+
+          echo "$BLOCKED_PRS" | jq -c '.[]' | while read -r PR; do
+            PR_NUMBER=$(echo "$PR" | jq -r '.number')
+
+            HAS_NEEDS_HUMAN=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' | grep -c "^needs-human$" || true)
+            if [ "$HAS_NEEDS_HUMAN" -gt 0 ]; then
+              continue
+            fi
+
+            RECOVERY_COUNT=$(gh pr view "$PR_NUMBER" --json comments --jq '[.comments[].body | select(contains("自動回復"))] | length')
+
+            if [ "$RECOVERY_COUNT" -ge 3 ]; then
+              echo "PR #$PR_NUMBER: loop stall detected ($RECOVERY_COUNT recoveries)"
+              gh pr edit "$PR_NUMBER" --add-label "needs-human"
+              gh pr comment "$PR_NUMBER" --body "## ⚠️ ループ停滞検知
+
+**エージェント**：監視エージェント
+**検出内容**：同一 PR で自動回復が ${RECOVERY_COUNT} 回繰り返されています。
+**対応**：自動回復を停止しました。\`needs-human\` ラベルを付与しました。
+**次のアクション**：人間による根本原因の確認・対応が必要です"
+            fi
+          done
