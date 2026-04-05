@@ -37,7 +37,9 @@ jobs:
           # waiting-for-answer が付与された回数をコメント履歴から推定
           LOOP_COUNT=$(gh issue view "$ISSUE_NUMBER" --json comments --jq '[.comments[].body | select(contains("確認事項があります"))] | length')
           echo "Question loop count: $LOOP_COUNT"
-          if [ "$LOOP_COUNT" -ge 2 ]; then
+          echo "LOOP_COUNT=$LOOP_COUNT" >> $GITHUB_ENV
+          # 3回以上質問済みの場合（2往復を超えた）は即時ブロック
+          if [ "$LOOP_COUNT" -ge 3 ]; then
             echo "Question loop limit (2) exceeded."
             echo "LOOP_LIMIT_EXCEEDED=true" >> $GITHUB_ENV
           fi
@@ -84,12 +86,16 @@ jobs:
             本文:
             ${{ github.event.issue.body }}
 
+            質問往復回数: ${{ env.LOOP_COUNT }} / 2（上限）
+
             手順:
             1. Issue 本文と既存のコメントを読む
             2. 要件として曖昧な点・不明点を洗い出す
             3. 判断する:
 
-            【曖昧点・不明点がある場合】
+            【重要】質問往復回数が 2 以上の場合は追加の質問をしてはならない。現時点の情報で要件を確定すること。
+
+            【曖昧点・不明点がある場合 かつ 質問往復回数が 2 未満の場合】
             - 以下のフォーマットで質問コメントを投稿する:
               `gh issue comment ${{ github.event.issue.number }} --body "## ❓ 確認事項があります\n\n要件を確定するために以下を確認させてください。\n\n### 質問\n1. <質問内容>\n2. <質問内容>"`
             - `in-requirements` を除去してから `waiting-for-answer` を付与する（この順序を厳守）:
@@ -97,7 +103,7 @@ jobs:
               `gh issue edit ${{ github.event.issue.number }} --add-label "waiting-for-answer"`
             - 処理を終了する
 
-            【曖昧点がない・要件を確定できる場合】
+            【曖昧点がない・要件を確定できる場合】または【質問往復回数が 2 以上の場合】
             - 以下のフォーマットで要件確定コメントを投稿する:
               ```
               gh issue comment ${{ github.event.issue.number }} --body "## ✅ 要件確定\n\n..."

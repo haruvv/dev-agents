@@ -51,9 +51,17 @@ jobs:
             sleep 30
           done
 
-          if [ "$FAILED" -gt 0 ]; then
+          # TOTAL が 0 の場合は API 失敗 or チェック未登録として未通過扱いにする
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "CI_STATUS=UNKNOWN" >> $GITHUB_ENV
+            echo "CI_FAIL_REASON=CI チェックが登録されていないか、gh pr checks の取得に失敗しました" >> $GITHUB_ENV
+          elif [ "$FAILED" -gt 0 ]; then
             echo "CI_STATUS=FAILED" >> $GITHUB_ENV
             echo "CI_FAILED_COUNT=$FAILED" >> $GITHUB_ENV
+          elif [ "$PENDING" -gt 0 ]; then
+            # 10分待機後もまだ保留中 → タイムアウト
+            echo "CI_STATUS=TIMED_OUT" >> $GITHUB_ENV
+            echo "CI_FAIL_REASON=CI チェックが 10 分以内に完了しませんでした（保留中: ${PENDING} 件）" >> $GITHUB_ENV
           else
             echo "CI_STATUS=PASSED" >> $GITHUB_ENV
           fi
@@ -85,6 +93,10 @@ jobs:
           if [ "$CI_STATUS" = "FAILED" ]; then
             echo "MERGE_CONDITION_FAILED=true" >> $GITHUB_ENV
             echo "MERGE_FAIL_REASON=CI チェックが $CI_FAILED_COUNT 件失敗しています" >> $GITHUB_ENV
+            exit 0
+          elif [ "$CI_STATUS" = "TIMED_OUT" ] || [ "$CI_STATUS" = "UNKNOWN" ]; then
+            echo "MERGE_CONDITION_FAILED=true" >> $GITHUB_ENV
+            echo "MERGE_FAIL_REASON=$CI_FAIL_REASON" >> $GITHUB_ENV
             exit 0
           fi
 
