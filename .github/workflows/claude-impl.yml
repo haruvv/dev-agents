@@ -94,7 +94,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH }}
-          prompt: |
+          direct_prompt: |
             あなたは実装エージェントです。以下の Issue を実装してください。
 
             Issue: #${{ github.event.issue.number }}
@@ -116,7 +116,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH }}
-          prompt: |
+          direct_prompt: |
             あなたは実装エージェントです。PR のレビュー指摘を修正してください。
 
             PR: #${{ github.event.pull_request.number }}

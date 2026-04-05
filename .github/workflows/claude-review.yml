@@ -90,7 +90,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.event.pull_request.head.ref }}
-          prompt: |
+          direct_prompt: |
             あなたはレビューエージェントです。以下の PR をレビューしてください。
 
             PR: #${{ github.event.pull_request.number }}
