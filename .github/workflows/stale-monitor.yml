@@ -179,6 +179,69 @@ jobs:
             fi
           done
 
+      # 更新停滞検知: PR の in-review ラベルで最終更新から4時間以上経過したものを処理
+      - name: Detect stale PRs with in-review label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          STALE_THRESHOLD_MINUTES=240
+          NOW=$(date -u +%s)
+
+          PRS=$(gh pr list \
+            --label "in-review" \
+            --state open \
+            --json number,updatedAt,labels \
+            --limit 50)
+
+          echo "$PRS" | jq -c '.[]' | while read -r PR; do
+            PR_NUMBER=$(echo "$PR" | jq -r '.number')
+            UPDATED_AT=$(echo "$PR" | jq -r '.updatedAt')
+            UPDATED_TS=$(date -u -d "$UPDATED_AT" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED_AT" +%s)
+            ELAPSED_MINUTES=$(( (NOW - UPDATED_TS) / 60 ))
+
+            echo "PR #$PR_NUMBER: last updated $ELAPSED_MINUTES minutes ago (label: in-review)"
+
+            if [ "$ELAPSED_MINUTES" -lt "$STALE_THRESHOLD_MINUTES" ]; then
+              continue
+            fi
+
+            # blocked ラベルチェック
+            HAS_BLOCKED=$(echo "$PR" | jq -r '.labels[].name' | grep -c "^blocked$" || true)
+            if [ "$HAS_BLOCKED" -gt 0 ]; then
+              echo "PR #$PR_NUMBER has blocked label. Skipping."
+              continue
+            fi
+
+            # 自動回復回数チェック
+            RECOVERY_COUNT=$(gh pr view "$PR_NUMBER" --json comments --jq '[.comments[].body | select(contains("自動回復"))] | length')
+            echo "PR #$PR_NUMBER: recovery count = $RECOVERY_COUNT"
+
+            if [ "$RECOVERY_COUNT" -ge 2 ]; then
+              echo "PR #$PR_NUMBER: recovery limit exceeded. Adding needs-human."
+              gh pr edit "$PR_NUMBER" \
+                --remove-label "in-review" \
+                --add-label "blocked" \
+                --add-label "needs-human"
+              gh pr comment "$PR_NUMBER" --body "## ⚠️ 自動回復上限超過
+
+**エージェント**：監視エージェント
+**検出内容**：\`in-review\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
+自動回復を2回実施しましたが改善されませんでした。
+**次のアクション**：人間による確認・対応が必要です"
+            else
+              echo "PR #$PR_NUMBER: restarting review with ready-for-review"
+              gh pr edit "$PR_NUMBER" \
+                --remove-label "in-review" \
+                --add-label "ready-for-review"
+              gh pr comment "$PR_NUMBER" --body "## 🔄 自動回復（更新停滞検知）
+
+**エージェント**：監視エージェント
+**検出内容**：\`in-review\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
+**対応**：\`in-review\` を除去し \`ready-for-review\` を付与して再起動しました。
+**自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
+            fi
+          done
+
       # ループ停滞検知: blocked → トリガーの遷移が3回以上の Issue / PR を処理
       - name: Detect loop stall
         env:

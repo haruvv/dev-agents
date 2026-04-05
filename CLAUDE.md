@@ -27,11 +27,11 @@ dev-agents/
 | ラベル | トリガーするワークフロー | 完了後に付与するラベル |
 |--------|------------------------|----------------------|
 | `要件定義作成` | claude-requirements.yml | `詳細設計作成` |
-| `詳細設計作成` | claude-detailed-design.yml | `タスク分割` |
+| `詳細設計作成` | claude-design.yml | `タスク分割` |
 | `タスク分割` | claude-task-split.yml | `ready-for-impl`（各サブIssue） |
 | `ready-for-impl` | claude-impl.yml | `ready-for-review` |
-| `ready-for-review` | claude-auto-review.yml | `review-passed` |
-| `review-passed` | claude-auto-merge.yml | —（マージ・クローズ） |
+| `ready-for-review` | claude-review.yml | `review-passed` |
+| `review-passed` | claude-merge-check.yml | —（マージ・クローズ） |
 
 ---
 
