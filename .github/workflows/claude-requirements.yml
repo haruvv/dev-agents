@@ -75,11 +75,11 @@ jobs:
       # Claude Code Action で要件定義を実行
       - name: Run Claude Code Requirements
         if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED != 'true'
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          direct_prompt: |
+          prompt: |
             あなたは要件定義エージェントです。以下の Issue の要件を整理・確定してください。
 
             Issue: #${{ github.event.issue.number }}
