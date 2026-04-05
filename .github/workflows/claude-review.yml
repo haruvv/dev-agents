@@ -1,0 +1,196 @@
+name: レビューエージェント
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  review:
+    if: github.event.label.name == 'ready-for-review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # blocked チェック
+      - name: Check blocked
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q "^blocked$"; then
+            echo "PR is blocked. Skipping."
+            echo "BLOCKED=true" >> $GITHUB_ENV
+          fi
+
+      # レビュー試行回数チェック（上限3回）
+      - name: Check review attempt count
+        if: env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          # review-passed または needs-fix ラベルが付与された回数をコメント履歴から推定
+          REVIEW_COUNT=$(gh pr view "$PR_NUMBER" --json comments --jq '[.comments[].body | select(contains("自動レビュー結果"))] | length')
+          echo "Review count: $REVIEW_COUNT"
+          if [ "$REVIEW_COUNT" -ge 3 ]; then
+            echo "Review attempt limit (3) exceeded."
+            echo "REVIEW_LIMIT_EXCEEDED=true" >> $GITHUB_ENV
+          fi
+
+      # 上限超過時: blocked + needs-human を付与して終了
+      - name: Handle review limit exceeded
+        if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          gh pr edit "$PR_NUMBER" \
+            --remove-label "ready-for-review" \
+            --add-label "blocked" \
+            --add-label "needs-human"
+          gh pr comment "$PR_NUMBER" --body "## ⚠️ レビュー上限超過
+
+**エージェント**：レビューエージェント
+**エラー内容**：レビュー試行回数が上限（3回）を超過しました。
+**次のアクション**：人間による確認・対応が必要です"
+
+      # in-review に遷移
+      - name: Transition to in-review
+        if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --remove-label "ready-for-review" \
+            --add-label "in-review"
+
+      # ブランチをチェックアウト
+      - name: Checkout PR branch
+        if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch origin ${{ github.event.pull_request.head.ref }}
+          git checkout ${{ github.event.pull_request.head.ref }}
+
+      # Claude Code Action でレビューを実行
+      - name: Run Claude Code Review
+        if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true'
+        id: claude_review
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.event.pull_request.head.ref }}
+          prompt: |
+            あなたはレビューエージェントです。以下の PR をレビューしてください。
+
+            PR: #${{ github.event.pull_request.number }}
+            タイトル: ${{ github.event.pull_request.title }}
+
+            レビュー観点:
+            1. コード品質（可読性・保守性・安全性）
+            2. 設計整合性（CLAUDE.md・設計書との整合性）
+            3. 完了条件の達成（関連 Issue の完了条件をすべて満たしているか）
+
+            レビュー結果を以下のフォーマットで PR にコメントしてください:
+
+            ## 🔍 自動レビュー結果
+
+            ### P1（必須修正）
+            （必須修正事項がない場合は「なし」と記載）
+
+            ### P2（推奨修正）
+            （推奨修正事項がない場合は「なし」と記載）
+
+            ### 総評
+            （全体的な評価を記載）
+
+            ACTION: APPROVE
+
+            または
+
+            ACTION: REQUEST_CHANGES
+
+            注意:
+            - P1 が1件以上ある場合は ACTION: REQUEST_CHANGES にすること
+            - P1 がない場合は ACTION: APPROVE にすること
+            - コメント本文に必ず `ACTION: APPROVE` または `ACTION: REQUEST_CHANGES` のどちらか一方を含めること
+
+      # Claude のコメントから ACTION を取得して判定
+      - name: Parse review result
+        if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          # 最新のコメントから ACTION を取得
+          LATEST_COMMENT=$(gh pr view "$PR_NUMBER" --json comments --jq '.comments[-1].body')
+          echo "Latest comment: $LATEST_COMMENT"
+
+          if echo "$LATEST_COMMENT" | grep -q "ACTION: APPROVE"; then
+            echo "REVIEW_ACTION=APPROVE" >> $GITHUB_ENV
+          elif echo "$LATEST_COMMENT" | grep -q "ACTION: REQUEST_CHANGES"; then
+            echo "REVIEW_ACTION=REQUEST_CHANGES" >> $GITHUB_ENV
+          else
+            echo "REVIEW_ACTION=UNKNOWN" >> $GITHUB_ENV
+          fi
+
+      # APPROVE の場合: in-review を除去して review-passed を付与
+      - name: Handle APPROVE
+        if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true' && env.REVIEW_ACTION == 'APPROVE'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --remove-label "in-review" \
+            --add-label "review-passed"
+
+      # REQUEST_CHANGES の場合: in-review を除去して needs-fix を付与
+      - name: Handle REQUEST_CHANGES
+        if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true' && env.REVIEW_ACTION == 'REQUEST_CHANGES'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --remove-label "in-review" \
+            --add-label "needs-fix"
+
+      # 判定不能の場合: blocked を付与してコメント通知
+      - name: Handle UNKNOWN result
+        if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true' && env.REVIEW_ACTION == 'UNKNOWN'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --remove-label "in-review" \
+            --add-label "blocked"
+          gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ エージェント処理失敗
+
+**エージェント**：レビューエージェント
+**エラー内容**：レビュー結果の ACTION が判定できませんでした。コメントに \`ACTION: APPROVE\` または \`ACTION: REQUEST_CHANGES\` が含まれていません。
+**次のアクション**：人間による確認・対応が必要です"
+
+      # 失敗時: in-review 除去・blocked 付与・コメント
+      - name: Handle failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --remove-label "in-review" \
+            --remove-label "ready-for-review" \
+            --add-label "blocked" || true
+          gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ エージェント処理失敗
+
+**エージェント**：レビューエージェント
+**エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
+**次のアクション**：人間による確認・対応が必要です"
