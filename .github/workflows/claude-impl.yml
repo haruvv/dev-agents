@@ -91,7 +91,7 @@ jobs:
         if: github.event_name == 'issues' && env.BLOCKED != 'true'
         uses: anthropics/claude-code-action@beta
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH }}
           direct_prompt: |
@@ -113,7 +113,7 @@ jobs:
         if: github.event_name == 'pull_request' && env.BLOCKED != 'true'
         uses: anthropics/claude-code-action@beta
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH }}
           direct_prompt: |
