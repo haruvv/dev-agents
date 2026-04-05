@@ -32,8 +32,15 @@ create_label() {
   if $FORCE; then
     gh label create "$name" --color "$color" --description "$description" $REPO_FLAG --force
   else
-    gh label create "$name" --color "$color" --description "$description" $REPO_FLAG 2>/dev/null \
-      || echo "  skip: '$name' already exists"
+    local output
+    if output=$(gh label create "$name" --color "$color" --description "$description" $REPO_FLAG 2>&1); then
+      : # 作成成功
+    elif echo "$output" | grep -qi "already exists"; then
+      echo "  skip: '$name' already exists"
+    else
+      echo "ERROR: failed to create label '$name': $output" >&2
+      exit 1
+    fi
   fi
 }
 
