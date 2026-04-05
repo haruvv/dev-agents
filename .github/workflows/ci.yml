@@ -21,3 +21,37 @@ jobs:
 
       - name: Run actionlint
         run: ./actionlint -color .github/workflows/*.yml
+
+  architecture-check:
+    name: アーキテクチャ制約チェック
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x scripts/check-*.sh
+
+      - name: ファイル配置ルールチェック
+        run: scripts/check-placement.sh
+
+      - name: レイヤ逆流チェック
+        run: scripts/check-layer.sh
+
+      - name: ドメイン境界チェック
+        run: scripts/check-domain-boundary.sh
+
+      - name: 境界バリデーションチェック
+        run: scripts/check-boundary-validation.sh
+
+  # TODO(ISSUE-10b): src/ の技術スタックが決まったタイミングで以下を追加する
+  # lint:
+  #   name: リント・型検査
+  #   ...
+  # test:
+  #   name: 単体テスト
+  #   ...
+  # build:
+  #   name: ビルド
+  #   ...
