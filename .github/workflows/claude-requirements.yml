@@ -3,11 +3,6 @@ name: 要件定義エージェント
 on:
   issues:
     types: [labeled]
-  workflow_dispatch:
-    inputs:
-      issue_number:
-        description: 'Issue number'
-        required: true
 
 jobs:
   requirements:
