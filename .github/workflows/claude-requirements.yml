@@ -79,7 +79,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: |
+          direct_prompt: |
             あなたは要件定義エージェントです。以下の Issue の要件を整理・確定してください。
 
             Issue: #${{ github.event.issue.number }}
