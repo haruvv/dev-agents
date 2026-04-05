@@ -212,6 +212,19 @@ jobs:
               continue
             fi
 
+            # アクティブなレビューワークフロー実行チェック
+            # claude-review.yml が queued/in_progress の場合は停滞ではないためスキップする
+            PR_BRANCH=$(gh pr view "$PR_NUMBER" --json headRefName --jq '.headRefName')
+            ACTIVE_RUNS=$(gh run list \
+              --workflow "claude-review.yml" \
+              --branch "$PR_BRANCH" \
+              --json status \
+              --jq '[.[] | select(.status == "queued" or .status == "in_progress")] | length' 2>/dev/null || echo "0")
+            if [ "$ACTIVE_RUNS" -gt 0 ]; then
+              echo "PR #$PR_NUMBER: review workflow is still active ($ACTIVE_RUNS run(s)). Skipping."
+              continue
+            fi
+
             # 自動回復回数チェック
             RECOVERY_COUNT=$(gh pr view "$PR_NUMBER" --json comments --jq '[.comments[].body | select(contains("自動回復"))] | length')
             echo "PR #$PR_NUMBER: recovery count = $RECOVERY_COUNT"
