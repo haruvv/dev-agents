@@ -27,13 +27,14 @@
 
 **`in-*` ラベルを残存させてはならない。** 残存すると監視エージェントが誤検知する。
 
-| エージェント | トリガーラベル | 実行中ラベル | 付与対象 |
-|---|---|---|---|
-| 要件定義 | `要件定義作成` | `in-requirements` | Issue |
-| 設計 | `詳細設計作成` | `in-design` | Issue |
-| タスク分割 | `タスク分割` | `in-task-split` | Issue |
-| 実装 | `ready-for-impl` / `needs-fix` | `in-impl` | Issue |
-| レビュー | `ready-for-review` | `in-review` | PR |
+| エージェント | トリガーラベル | トリガー付与対象 | 実行中ラベル | 実行中ラベル付与対象 |
+|---|---|---|---|---|
+| 要件定義 | `要件定義作成` | Issue | `in-requirements` | Issue |
+| 設計 | `詳細設計作成` | Issue | `in-design` | Issue |
+| タスク分割 | `タスク分割` | Issue | `in-task-split` | Issue |
+| 実装（初回） | `ready-for-impl` | Issue | `in-impl` | Issue |
+| 実装（差し戻し） | `needs-fix` | **PR** | `in-impl` | Issue（関連 Issue に付与） |
+| レビュー | `ready-for-review` | PR | `in-review` | PR |
 
 ---
 
