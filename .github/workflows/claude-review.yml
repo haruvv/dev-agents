@@ -58,9 +58,9 @@ jobs:
             --add-label "needs-human"
           gh pr comment "$PR_NUMBER" --body "## ⚠️ レビュー上限超過
 
-**エージェント**：レビューエージェント
-**エラー内容**：レビュー試行回数が上限（3回）を超過しました。
-**次のアクション**：人間による確認・対応が必要です"
+          **エージェント**：レビューエージェント
+          **エラー内容**：レビュー試行回数が上限（3回）を超過しました。
+          **次のアクション**：人間による確認・対応が必要です"
 
       # in-review に遷移
       - name: Transition to in-review
@@ -175,9 +175,9 @@ jobs:
             --add-label "blocked"
           gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ エージェント処理失敗
 
-**エージェント**：レビューエージェント
-**エラー内容**：レビュー結果の ACTION が判定できませんでした。コメントに \`ACTION: APPROVE\` または \`ACTION: REQUEST_CHANGES\` が含まれていません。
-**次のアクション**：人間による確認・対応が必要です"
+          **エージェント**：レビューエージェント
+          **エラー内容**：レビュー結果の ACTION が判定できませんでした。コメントに \`ACTION: APPROVE\` または \`ACTION: REQUEST_CHANGES\` が含まれていません。
+          **次のアクション**：人間による確認・対応が必要です"
 
       # 失敗時: in-review 除去・blocked 付与・コメント
       - name: Handle failure
@@ -191,6 +191,6 @@ jobs:
             --add-label "blocked" || true
           gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ エージェント処理失敗
 
-**エージェント**：レビューエージェント
-**エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
-**次のアクション**：人間による確認・対応が必要です"
+          **エージェント**：レビューエージェント
+          **エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
+          **次のアクション**：人間による確認・対応が必要です"
