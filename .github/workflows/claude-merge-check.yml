@@ -1,0 +1,142 @@
+name: 統合判定エージェント
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  merge-check:
+    if: github.event.label.name == 'review-passed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # blocked チェック
+      - name: Check blocked
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q "^blocked$"; then
+            echo "PR is blocked. Skipping."
+            echo "BLOCKED=true" >> $GITHUB_ENV
+          fi
+
+      # CI チェック結果の確認
+      - name: Check CI status
+        if: env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          # CI チェックが完了するまで最大10分待機
+          for i in $(seq 1 20); do
+            CHECKS=$(gh pr checks "$PR_NUMBER" --json name,state 2>/dev/null || echo "[]")
+            PENDING=$(echo "$CHECKS" | jq '[.[] | select(.state == "PENDING" or .state == "IN_PROGRESS")] | length')
+            FAILED=$(echo "$CHECKS" | jq '[.[] | select(.state == "FAILURE" or .state == "ERROR")] | length')
+            TOTAL=$(echo "$CHECKS" | jq 'length')
+
+            echo "Checks: total=$TOTAL, pending=$PENDING, failed=$FAILED"
+
+            if [ "$PENDING" -eq 0 ]; then
+              break
+            fi
+            echo "Waiting for CI to complete... ($i/20)"
+            sleep 30
+          done
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "CI_STATUS=FAILED" >> $GITHUB_ENV
+            echo "CI_FAILED_COUNT=$FAILED" >> $GITHUB_ENV
+          else
+            echo "CI_STATUS=PASSED" >> $GITHUB_ENV
+          fi
+
+      # 統合条件の確認
+      - name: Evaluate merge conditions
+        if: env.BLOCKED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
+
+          # review-passed の存在確認
+          if ! echo "$LABELS" | grep -q "^review-passed$"; then
+            echo "MERGE_CONDITION_FAILED=true" >> $GITHUB_ENV
+            echo "MERGE_FAIL_REASON=review-passed ラベルが存在しません" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          # blocked の不在確認
+          if echo "$LABELS" | grep -q "^blocked$"; then
+            echo "MERGE_CONDITION_FAILED=true" >> $GITHUB_ENV
+            echo "MERGE_FAIL_REASON=blocked ラベルが付いています" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          # CI 結果確認
+          if [ "$CI_STATUS" = "FAILED" ]; then
+            echo "MERGE_CONDITION_FAILED=true" >> $GITHUB_ENV
+            echo "MERGE_FAIL_REASON=CI チェックが $CI_FAILED_COUNT 件失敗しています" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          # auto-merge ラベルの確認
+          if echo "$LABELS" | grep -q "^auto-merge$"; then
+            echo "AUTO_MERGE=true" >> $GITHUB_ENV
+          fi
+
+          echo "MERGE_CONDITION_FAILED=false" >> $GITHUB_ENV
+
+      # 統合条件を満たす場合: ready-to-merge を付与
+      - name: Add ready-to-merge label
+        if: env.BLOCKED != 'true' && env.MERGE_CONDITION_FAILED == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --add-label "ready-to-merge"
+
+      # auto-merge ラベルがある場合のみ自動マージ
+      - name: Auto merge
+        if: env.BLOCKED != 'true' && env.MERGE_CONDITION_FAILED == 'false' && env.AUTO_MERGE == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --squash --auto
+          gh pr comment ${{ github.event.pull_request.number }} --body "## ✅ 自動マージ実行
+
+**エージェント**：統合判定エージェント
+統合条件をすべて満たしたため、自動マージを実行しました。"
+
+      # 条件未達の場合: blocked を付与してコメント通知
+      - name: Handle merge condition failed
+        if: env.BLOCKED != 'true' && env.MERGE_CONDITION_FAILED == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --add-label "blocked"
+          gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ 統合条件未達
+
+**エージェント**：統合判定エージェント
+**理由**：${{ env.MERGE_FAIL_REASON }}
+**次のアクション**：人間による確認・対応が必要です"
+
+      # 失敗時: blocked 付与・コメント
+      - name: Handle failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --add-label "blocked" || true
+          gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ エージェント処理失敗
+
+**エージェント**：統合判定エージェント
+**エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
+**次のアクション**：人間による確認・対応が必要です"
