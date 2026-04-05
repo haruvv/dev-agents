@@ -1,4 +1,4 @@
-name: 監視エージェント
+name: stale-monitor
 
 on:
   schedule:

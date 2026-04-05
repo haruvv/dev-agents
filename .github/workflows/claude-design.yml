@@ -1,4 +1,4 @@
-name: 設計エージェント
+name: design-agent
 
 on:
   issues:

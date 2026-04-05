@@ -1,4 +1,4 @@
-name: 要件定義エージェント
+name: requirements-agent
 
 on:
   issues:

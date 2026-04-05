@@ -1,4 +1,4 @@
-name: レビューエージェント
+name: review-agent
 
 on:
   pull_request:
