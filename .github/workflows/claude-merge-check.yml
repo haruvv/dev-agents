@@ -124,8 +124,8 @@ jobs:
           gh pr merge ${{ github.event.pull_request.number }} --squash --auto
           gh pr comment ${{ github.event.pull_request.number }} --body "## ✅ 自動マージ実行
 
-**エージェント**：統合判定エージェント
-統合条件をすべて満たしたため、自動マージを実行しました。"
+          **エージェント**：統合判定エージェント
+          統合条件をすべて満たしたため、自動マージを実行しました。"
 
       # 条件未達の場合: blocked を付与してコメント通知
       - name: Handle merge condition failed
@@ -136,9 +136,9 @@ jobs:
           gh pr edit ${{ github.event.pull_request.number }} --add-label "blocked"
           gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ 統合条件未達
 
-**エージェント**：統合判定エージェント
-**理由**：${{ env.MERGE_FAIL_REASON }}
-**次のアクション**：人間による確認・対応が必要です"
+          **エージェント**：統合判定エージェント
+          **理由**：${{ env.MERGE_FAIL_REASON }}
+          **次のアクション**：人間による確認・対応が必要です"
 
       # 失敗時: blocked 付与・コメント
       - name: Handle failure
@@ -149,6 +149,6 @@ jobs:
           gh pr edit ${{ github.event.pull_request.number }} --add-label "blocked" || true
           gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ エージェント処理失敗
 
-**エージェント**：統合判定エージェント
-**エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
-**次のアクション**：人間による確認・対応が必要です"
+          **エージェント**：統合判定エージェント
+          **エラー内容**：ワークフロー実行中にエラーが発生しました。GitHub Actions のログを確認してください。
+          **次のアクション**：人間による確認・対応が必要です"

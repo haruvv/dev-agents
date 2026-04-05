@@ -69,10 +69,10 @@ jobs:
                   --add-label "needs-human"
                 gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ 自動回復上限超過
 
-**エージェント**：監視エージェント
-**検出内容**：\`$LABEL\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
-自動回復を2回実施しましたが改善されませんでした。
-**次のアクション**：人間による確認・対応が必要です"
+                **エージェント**：監視エージェント
+                **検出内容**：\`$LABEL\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
+                自動回復を2回実施しましたが改善されませんでした。
+                **次のアクション**：人間による確認・対応が必要です"
                 continue
               fi
 
@@ -101,10 +101,10 @@ jobs:
                 --add-label "$TRIGGER_LABEL"
               gh issue comment "$ISSUE_NUMBER" --body "## 🔄 自動回復（更新停滞検知）
 
-**エージェント**：監視エージェント
-**検出内容**：\`$LABEL\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
-**対応**：\`$LABEL\` を除去し \`$TRIGGER_LABEL\` を付与して再起動しました。
-**自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
+              **エージェント**：監視エージェント
+              **検出内容**：\`$LABEL\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
+              **対応**：\`$LABEL\` を除去し \`$TRIGGER_LABEL\` を付与して再起動しました。
+              **自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
             done
           done
 
@@ -162,20 +162,20 @@ jobs:
                 --add-label "needs-human"
               gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ 自動回復上限超過
 
-**エージェント**：監視エージェント
-**検出内容**：\`in-impl\` 付与から ${ELAPSED_MINUTES} 分が経過しましたが PR が作成されていません。
-自動回復を2回実施しましたが改善されませんでした。
-**次のアクション**：人間による確認・対応が必要です"
+              **エージェント**：監視エージェント
+              **検出内容**：\`in-impl\` 付与から ${ELAPSED_MINUTES} 分が経過しましたが PR が作成されていません。
+              自動回復を2回実施しましたが改善されませんでした。
+              **次のアクション**：人間による確認・対応が必要です"
             else
               gh issue edit "$ISSUE_NUMBER" \
                 --remove-label "in-impl" \
                 --add-label "ready-for-impl"
               gh issue comment "$ISSUE_NUMBER" --body "## 🔄 自動回復（実行中停滞検知）
 
-**エージェント**：監視エージェント
-**検出内容**：\`in-impl\` 付与から ${ELAPSED_MINUTES} 分が経過しましたが PR が作成されていません。
-**対応**：\`in-impl\` を除去し \`ready-for-impl\` を再付与して再起動しました。
-**自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
+              **エージェント**：監視エージェント
+              **検出内容**：\`in-impl\` 付与から ${ELAPSED_MINUTES} 分が経過しましたが PR が作成されていません。
+              **対応**：\`in-impl\` を除去し \`ready-for-impl\` を再付与して再起動しました。
+              **自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
             fi
           done
 
@@ -237,10 +237,10 @@ jobs:
                 --add-label "needs-human"
               gh pr comment "$PR_NUMBER" --body "## ⚠️ 自動回復上限超過
 
-**エージェント**：監視エージェント
-**検出内容**：\`in-review\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
-自動回復を2回実施しましたが改善されませんでした。
-**次のアクション**：人間による確認・対応が必要です"
+              **エージェント**：監視エージェント
+              **検出内容**：\`in-review\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
+              自動回復を2回実施しましたが改善されませんでした。
+              **次のアクション**：人間による確認・対応が必要です"
             else
               echo "PR #$PR_NUMBER: restarting review with ready-for-review"
               gh pr edit "$PR_NUMBER" \
@@ -248,10 +248,10 @@ jobs:
                 --add-label "ready-for-review"
               gh pr comment "$PR_NUMBER" --body "## 🔄 自動回復（更新停滞検知）
 
-**エージェント**：監視エージェント
-**検出内容**：\`in-review\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
-**対応**：\`in-review\` を除去し \`ready-for-review\` を付与して再起動しました。
-**自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
+              **エージェント**：監視エージェント
+              **検出内容**：\`in-review\` ラベルが付与されてから ${ELAPSED_MINUTES} 分が経過しましたが、処理が完了していません。
+              **対応**：\`in-review\` を除去し \`ready-for-review\` を付与して再起動しました。
+              **自動回復回数**：$((RECOVERY_COUNT + 1)) / 2"
             fi
           done
 
@@ -284,10 +284,10 @@ jobs:
               gh issue edit "$ISSUE_NUMBER" --add-label "needs-human"
               gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ ループ停滞検知
 
-**エージェント**：監視エージェント
-**検出内容**：同一 Issue で自動回復が ${RECOVERY_COUNT} 回繰り返されています。
-**対応**：自動回復を停止しました。\`needs-human\` ラベルを付与しました。
-**次のアクション**：人間による根本原因の確認・対応が必要です"
+              **エージェント**：監視エージェント
+              **検出内容**：同一 Issue で自動回復が ${RECOVERY_COUNT} 回繰り返されています。
+              **対応**：自動回復を停止しました。\`needs-human\` ラベルを付与しました。
+              **次のアクション**：人間による根本原因の確認・対応が必要です"
             fi
           done
 
@@ -313,9 +313,9 @@ jobs:
               gh pr edit "$PR_NUMBER" --add-label "needs-human"
               gh pr comment "$PR_NUMBER" --body "## ⚠️ ループ停滞検知
 
-**エージェント**：監視エージェント
-**検出内容**：同一 PR で自動回復が ${RECOVERY_COUNT} 回繰り返されています。
-**対応**：自動回復を停止しました。\`needs-human\` ラベルを付与しました。
-**次のアクション**：人間による根本原因の確認・対応が必要です"
+              **エージェント**：監視エージェント
+              **検出内容**：同一 PR で自動回復が ${RECOVERY_COUNT} 回繰り返されています。
+              **対応**：自動回復を停止しました。\`needs-human\` ラベルを付与しました。
+              **次のアクション**：人間による根本原因の確認・対応が必要です"
             fi
           done
