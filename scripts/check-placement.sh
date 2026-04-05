@@ -20,10 +20,17 @@ if [ "$SRC_FILES" -eq 0 ]; then
 fi
 
 # ---- ルール1: ワークフロー定義は .github/workflows/ のみに置く ----
-# src/ や scripts/ に .yml が紛れ込んでいないか確認
-MISPLACED_WORKFLOWS=$(find src/ scripts/ -name "*.yml" -o -name "*.yaml" 2>/dev/null | grep -v ".github" || true)
+# 拡張子だけでなく GitHub Actions 固有のキー（on: + jobs:）を両方含むファイルを検出する。
+# これにより OpenAPI spec や Kubernetes マニフェスト等の正当な YAML を誤検知しない。
+MISPLACED_WORKFLOWS=""
+while IFS= read -r -d '' FILE; do
+  if grep -q "^on:" "$FILE" 2>/dev/null && grep -q "^jobs:" "$FILE" 2>/dev/null; then
+    MISPLACED_WORKFLOWS="${MISPLACED_WORKFLOWS}${FILE}"$'\n'
+  fi
+done < <(find src/ scripts/ \( -name "*.yml" -o -name "*.yaml" \) -print0 2>/dev/null)
+
 if [ -n "$MISPLACED_WORKFLOWS" ]; then
-  echo "[FAIL] ワークフロー定義が .github/workflows/ 以外に存在します:"
+  echo "[FAIL] GitHub Actions ワークフロー定義が .github/workflows/ 以外に存在します:"
   echo "$MISPLACED_WORKFLOWS"
   VIOLATIONS=$((VIOLATIONS + 1))
 else

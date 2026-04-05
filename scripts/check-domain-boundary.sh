@@ -49,13 +49,14 @@ fi
 for RULE in "${DOMAIN_BOUNDARIES[@]}"; do
   FROM_DOMAIN="${RULE%%:*}"
   FORBIDDEN_PATH="${RULE##*:}"
-  FORBIDDEN_BASENAME=$(basename "$FORBIDDEN_PATH")
 
   if [ ! -d "$FROM_DOMAIN" ]; then
     continue
   fi
 
-  MATCHES=$(grep -rn "from ['\"].*${FORBIDDEN_BASENAME}\|require.*${FORBIDDEN_BASENAME}" "$FROM_DOMAIN/" 2>/dev/null || true)
+  # basename ではなくフルパスのパターンで検索することで、
+  # 同ドメイン内の同名ディレクトリ（例: 自身の internal/）を誤検知しない
+  MATCHES=$(grep -rn "from ['\"].*${FORBIDDEN_PATH}\|require.*${FORBIDDEN_PATH}" "$FROM_DOMAIN/" 2>/dev/null || true)
   if [ -n "$MATCHES" ]; then
     echo "[FAIL] ドメイン外直接参照: $FROM_DOMAIN から $FORBIDDEN_PATH への直接参照が禁止されています:"
     echo "$MATCHES"
