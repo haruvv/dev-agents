@@ -1,0 +1,33 @@
+name: 機能要求
+description: 新しい機能や改善の要求を起票する
+labels:
+  - 要件定義作成
+body:
+  - type: markdown
+    attributes:
+      value: |
+        このテンプレートで起票すると、自動的に要件定義エージェントが起動します。
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 実現したいことを簡潔に書いてください
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景・動機
+      description: なぜこの機能が必要か、現状の課題を書いてください
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: 要件（わかる範囲で）
+      description: 具体的な要件や制約があれば書いてください。不明な点は要件定義エージェントが質問します
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件（わかる範囲で）
+      description: どうなったら完了とみなせるかを書いてください

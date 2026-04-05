@@ -1,0 +1,38 @@
+name: 子タスク
+description: タスク分割エージェントが親 Issue から分割した実装タスク
+labels:
+  - ready-for-impl
+body:
+  - type: markdown
+    attributes:
+      value: |
+        このテンプレートはタスク分割エージェントが自動的に使用します。手動起票には通常 `機能要求` テンプレートを使ってください。
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: タスクの説明
+    validations:
+      required: true
+  - type: input
+    id: parent
+    attributes:
+      label: 親 Issue
+      description: 親となる Issue 番号（例：#42）
+      placeholder: "#"
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: 実装方針
+      description: 設計書から抜粋した実装方針
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      description: 具体的な完了基準
+    validations:
+      required: true
