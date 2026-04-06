@@ -95,7 +95,7 @@ jobs:
           branch: ${{ env.BRANCH }}
           allowed_tools: "Bash"
           claude_env: |
-            GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            GH_TOKEN=${{ secrets.GH_PAT }}
           prompt: |
             あなたは実装エージェントです。以下の Issue を実装してください。
 
@@ -119,7 +119,7 @@ jobs:
           branch: ${{ env.BRANCH }}
           allowed_tools: "Bash"
           claude_env: |
-            GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            GH_TOKEN=${{ secrets.GH_PAT }}
           prompt: |
             あなたは実装エージェントです。PR のレビュー指摘を修正してください。
 
