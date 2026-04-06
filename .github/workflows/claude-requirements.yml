@@ -72,6 +72,18 @@ jobs:
             --remove-label "要件定義作成" \
             --add-label "in-requirements"
 
+      # コメント履歴を取得してファイルに保存
+      - name: Fetch issue comments
+        if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMENTS=$(gh issue view ${{ github.event.issue.number }} --json comments \
+            --jq '.comments[] | "### コメント (" + .author.login + ")\n" + .body + "\n"')
+          echo "ISSUE_COMMENTS<<EOF" >> $GITHUB_ENV
+          echo "$COMMENTS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
       # Claude Code Action で要件定義を実行
       - name: Run Claude Code Requirements
         if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED != 'true'
@@ -88,6 +100,9 @@ jobs:
             タイトル: ${{ github.event.issue.title }}
             本文:
             ${{ github.event.issue.body }}
+
+            ## コメント履歴（エージェントの質問とユーザーの回答を含む）
+            ${{ env.ISSUE_COMMENTS }}
 
             質問往復回数: ${{ env.LOOP_COUNT }} / 2（上限）
 
