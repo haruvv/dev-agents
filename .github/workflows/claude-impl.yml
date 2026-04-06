@@ -94,6 +94,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH }}
+          allowed_tools: "Bash"
           prompt: |
             あなたは実装エージェントです。以下の Issue を実装してください。
 
@@ -116,6 +117,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH }}
+          allowed_tools: "Bash"
           prompt: |
             あなたは実装エージェントです。PR のレビュー指摘を修正してください。
 
