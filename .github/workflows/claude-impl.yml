@@ -89,7 +89,7 @@ jobs:
       # Claude Code Action で実装を実行（Issue トリガー）
       - name: Run Claude Code (Issue trigger)
         if: github.event_name == 'issues' && env.BLOCKED != 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-base-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -112,7 +112,7 @@ jobs:
       # Claude Code Action で修正を実行（PR トリガー）
       - name: Run Claude Code (PR trigger)
         if: github.event_name == 'pull_request' && env.BLOCKED != 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-base-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
