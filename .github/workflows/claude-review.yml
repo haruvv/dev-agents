@@ -22,7 +22,7 @@ jobs:
       # blocked チェック
       - name: Check blocked
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$LABELS" | grep -q "^blocked$"; then
@@ -34,7 +34,7 @@ jobs:
       - name: Check review attempt count
         if: env.BLOCKED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           # review-passed または needs-fix ラベルが付与された回数をコメント履歴から推定
@@ -49,7 +49,7 @@ jobs:
       - name: Handle review limit exceeded
         if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           gh pr edit "$PR_NUMBER" \
@@ -66,7 +66,7 @@ jobs:
       - name: Transition to in-review
         if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} \
             --remove-label "ready-for-review" \
@@ -76,7 +76,7 @@ jobs:
       - name: Checkout PR branch
         if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git fetch origin ${{ github.event.pull_request.head.ref }}
           git checkout ${{ github.event.pull_request.head.ref }}
@@ -130,7 +130,7 @@ jobs:
       - name: Parse review result
         if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           # 最新のコメントから ACTION を取得
@@ -149,7 +149,7 @@ jobs:
       - name: Handle APPROVE
         if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true' && env.REVIEW_ACTION == 'APPROVE'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} \
             --remove-label "in-review" \
@@ -159,7 +159,7 @@ jobs:
       - name: Handle REQUEST_CHANGES
         if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true' && env.REVIEW_ACTION == 'REQUEST_CHANGES'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} \
             --remove-label "in-review" \
@@ -169,7 +169,7 @@ jobs:
       - name: Handle UNKNOWN result
         if: env.BLOCKED != 'true' && env.REVIEW_LIMIT_EXCEEDED != 'true' && env.REVIEW_ACTION == 'UNKNOWN'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} \
             --remove-label "in-review" \
@@ -184,7 +184,7 @@ jobs:
       - name: Handle failure
         if: failure()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} \
             --remove-label "in-review" \

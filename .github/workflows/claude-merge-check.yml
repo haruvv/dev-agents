@@ -20,7 +20,7 @@ jobs:
       # blocked チェック
       - name: Check blocked
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
           if echo "$LABELS" | grep -q "^blocked$"; then
@@ -32,7 +32,7 @@ jobs:
       - name: Check CI status
         if: env.BLOCKED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           # CI チェックが完了するまで最大10分待機
@@ -70,7 +70,7 @@ jobs:
       - name: Evaluate merge conditions
         if: env.BLOCKED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
@@ -111,7 +111,7 @@ jobs:
       - name: Add ready-to-merge label
         if: env.BLOCKED != 'true' && env.MERGE_CONDITION_FAILED == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} --add-label "ready-to-merge"
 
@@ -119,7 +119,7 @@ jobs:
       - name: Auto merge
         if: env.BLOCKED != 'true' && env.MERGE_CONDITION_FAILED == 'false' && env.AUTO_MERGE == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr merge ${{ github.event.pull_request.number }} --squash --auto
           gh pr comment ${{ github.event.pull_request.number }} --body "## ✅ 自動マージ実行
@@ -131,7 +131,7 @@ jobs:
       - name: Handle merge condition failed
         if: env.BLOCKED != 'true' && env.MERGE_CONDITION_FAILED == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} --add-label "blocked"
           gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ 統合条件未達
@@ -144,7 +144,7 @@ jobs:
       - name: Handle failure
         if: failure()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh pr edit ${{ github.event.pull_request.number }} --add-label "blocked" || true
           gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ エージェント処理失敗

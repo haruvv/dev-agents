@@ -19,7 +19,7 @@ jobs:
       # blocked チェック
       - name: Check blocked
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           LABELS=$(gh issue view ${{ github.event.issue.number }} --json labels --jq '.labels[].name')
           if echo "$LABELS" | grep -q "^blocked$"; then
@@ -31,7 +31,7 @@ jobs:
       - name: Transition to in-task-split
         if: env.BLOCKED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "タスク分割" \
@@ -93,7 +93,7 @@ jobs:
       - name: Handle failure
         if: failure()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "in-task-split" \

@@ -19,7 +19,7 @@ jobs:
       # blocked チェック
       - name: Check blocked
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           LABELS=$(gh issue view ${{ github.event.issue.number }} --json labels --jq '.labels[].name')
           if echo "$LABELS" | grep -q "^blocked$"; then
@@ -31,7 +31,7 @@ jobs:
       - name: Check question loop count
         if: env.BLOCKED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           ISSUE_NUMBER=${{ github.event.issue.number }}
           # waiting-for-answer が付与された回数をコメント履歴から推定
@@ -48,7 +48,7 @@ jobs:
       - name: Handle loop limit exceeded
         if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           ISSUE_NUMBER=${{ github.event.issue.number }}
           gh issue edit "$ISSUE_NUMBER" \
@@ -66,7 +66,7 @@ jobs:
       - name: Transition to in-requirements
         if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "要件定義作成" \
@@ -76,7 +76,7 @@ jobs:
       - name: Fetch issue comments
         if: env.BLOCKED != 'true' && env.LOOP_LIMIT_EXCEEDED != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           COMMENTS=$(gh issue view ${{ github.event.issue.number }} --json comments \
             --jq '.comments[] | "### コメント (" + .author.login + ")\n" + .body + "\n"')
@@ -162,7 +162,7 @@ jobs:
       - name: Handle failure
         if: failure()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --remove-label "in-requirements" \
