@@ -137,6 +137,19 @@ jobs:
             レビューコメントを確認し、指摘されたすべての問題を修正してください。
             修正後、変更をコミットしてください（コミットメッセージ: fix: <修正内容の要約>）。
 
+      # Issue トリガー: コミットをリモートにプッシュ
+      - name: Push commits (Issue trigger)
+        if: github.event_name == 'issues' && env.BLOCKED != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git push origin ${{ env.BRANCH }}
+
+      # PR トリガー: コミットをリモートにプッシュ
+      - name: Push commits (PR trigger)
+        if: github.event_name == 'pull_request' && env.BLOCKED != 'true'
+        run: git push origin ${{ env.BRANCH }}
+
       # Issue トリガー: PR を作成して ready-for-review を付与、in-impl を除去
       - name: Create PR and label (Issue trigger)
         if: github.event_name == 'issues' && env.BLOCKED != 'true'
