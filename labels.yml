@@ -1,0 +1,78 @@
+# Issue ラベル — ステート遷移用
+- name: 要件定義作成
+  color: "0075ca"
+  description: "要件定義ジョブのトリガー"
+
+- name: in-requirements
+  color: "e4e669"
+  description: "要件定義 Worker 実行中"
+
+- name: waiting-for-answer
+  color: "f9d0c4"
+  description: "人間の回答待ち"
+
+- name: 詳細設計作成
+  color: "0075ca"
+  description: "設計ジョブのトリガー"
+
+- name: in-design
+  color: "e4e669"
+  description: "設計 Worker 実行中"
+
+- name: タスク分割
+  color: "0075ca"
+  description: "タスク分割ジョブのトリガー"
+
+- name: in-task-split
+  color: "e4e669"
+  description: "タスク分割 Worker 実行中"
+
+- name: ready-for-impl
+  color: "0075ca"
+  description: "実装ジョブのトリガー"
+
+- name: in-impl
+  color: "e4e669"
+  description: "実装 Worker 実行中"
+
+- name: blocked
+  color: "d93f0b"
+  description: "自動処理停止・要人間対応"
+
+- name: needs-human
+  color: "b60205"
+  description: "上限超過・人間介入必要"
+
+# PR ラベル
+- name: ai-generated
+  color: "bfd4f2"
+  description: "Worker が生成した PR"
+
+- name: ready-for-human-review
+  color: "0e8a16"
+  description: "人間レビュー待ち（CI 成功後のみ付与）"
+
+# 将来フェーズ用（定義のみ）
+- name: ready-for-auto-review
+  color: "c2e0c6"
+  description: "[将来] レビュー Worker トリガー"
+
+- name: needs-fix
+  color: "e99695"
+  description: "[将来] 差し戻し（同一 PR ブランチで修正継続）"
+
+- name: in-review
+  color: "e4e669"
+  description: "[将来] レビュー Worker 実行中"
+
+- name: review-passed
+  color: "0e8a16"
+  description: "[将来] レビュー承認済み"
+
+- name: ready-to-merge
+  color: "006b75"
+  description: "[将来] マージ条件を全て満たした"
+
+- name: auto-merge
+  color: "1d76db"
+  description: "[将来] 自動マージ許可"
