@@ -88,9 +88,10 @@ jobs:
         uses: anthropics/claude-code-base-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.event.pull_request.head.ref }}
           allowed_tools: "Bash"
+          claude_env: |
+            GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
           prompt: |
             あなたはレビューエージェントです。以下の PR をレビューしてください。
 
