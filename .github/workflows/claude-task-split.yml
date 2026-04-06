@@ -40,7 +40,7 @@ jobs:
       # Claude Code Action でタスク分割を実行
       - name: Run Claude Code Task Split
         if: env.BLOCKED != 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-base-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
