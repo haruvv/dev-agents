@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Dev Agent - Webアプリケーション</title>
+    <meta name="description" content="ボタンクリックでメッセージを表示するシンプルなWebアプリケーション">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main>
+        <header>
+            <h1>Hello Dev Agent</h1>
+            <p>ボタンをクリックしてメッセージを表示してみてください</p>
+        </header>
+        
+        <section class="app-container">
+            <button id="toggleButton" type="button" aria-describedby="messageArea">
+                メッセージを表示
+            </button>
+            
+            <div id="messageArea" class="message-area" role="status" aria-live="polite">
+                <!-- メッセージがここに表示されます -->
+            </div>
+        </section>
+    </main>
+    
+    <script src="script.js"></script>
+</body>
+</html>
