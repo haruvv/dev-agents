@@ -1,0 +1,31 @@
+name: Task Split Trigger
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  id-token: write
+  issues: read
+
+jobs:
+  dispatch:
+    if: github.event.label.name == 'タスク分割'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.SQS_SENDER_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Send job to SQS
+        run: |
+          aws sqs send-message \
+            --queue-url "${{ secrets.JOB_QUEUE_URL }}" \
+            --message-body "{
+              \"job_id\": \"${{ github.run_id }}-${{ github.run_attempt }}\",
+              \"job_type\": \"task-split\",
+              \"issue_number\": ${{ github.event.issue.number }},
+              \"repo\": \"${{ github.repository }}\"
+            }"
