@@ -78,8 +78,9 @@ jobs:
         uses: anthropics/claude-code-base-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_tools: "Bash"
+          claude_env: |
+            GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
           prompt: |
             あなたは要件定義エージェントです。以下の Issue の要件を整理・確定してください。
 
