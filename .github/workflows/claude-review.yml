@@ -91,7 +91,7 @@ jobs:
           branch: ${{ github.event.pull_request.head.ref }}
           allowed_tools: "Bash"
           claude_env: |
-            GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            GH_TOKEN=${{ secrets.GH_PAT }}
           prompt: |
             あなたはレビューエージェントです。以下の PR をレビューしてください。
 
