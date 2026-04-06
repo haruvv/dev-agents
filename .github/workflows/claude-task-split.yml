@@ -44,6 +44,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_tools: "Bash"
           prompt: |
             あなたはタスク分割エージェントです。以下の Issue の設計書を読み、実装可能な粒度まで作業単位を分割してください。
 
