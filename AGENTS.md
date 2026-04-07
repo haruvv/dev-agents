@@ -7,7 +7,9 @@
 
 ## このリポジトリについて
 
-<!-- リポジトリの目的・概要を1〜3行で記述する -->
+このリポジトリ（`haruvv/dev-agents`）は、AI 自律開発パイプラインの実行現場かつナレッジベース。
+Worker はここに Issue 起票された要求を受け取り、要件整理・設計・実装・修正を行う。
+蓄積された docs/ がパイプライン自体の記録システムとして機能する。
 
 ---
 
@@ -19,22 +21,15 @@
 | `docs/<issue-number>-design.md` | 設計書（design Worker が生成） |
 | `docs/requirements-template.md` | 要件定義書のフォーマット定義 |
 | `docs/design-template.md` | 設計書のフォーマット定義 |
+| `docs/constraints.md` | アーキテクチャ制約・禁止事項 |
+| `docs/pipeline-learnings.md` | パイプライン運用で得た知見の蓄積 |
 | `AGENTS.md`（本ファイル） | Worker 向け案内（入口） |
 
 ---
 
 ## アーキテクチャ制約
 
-<!-- このリポジトリ固有の制約・禁止事項を記述する -->
-<!-- Worker はここに記載された制約を実装時に必ず遵守すること -->
-
-- 
-
-<!-- 例:
-- レイヤー逆流の禁止（infrastructure → domain への直接参照不可）
-- ドメイン外への直接 DB アクセス禁止
-- 環境変数は必ず設定ファイル経由で参照すること
--->
+詳細は `docs/constraints.md` を参照。Worker は実装前に必ず確認すること。
 
 ---
 
@@ -49,7 +44,7 @@
 
 ## ラベル一覧
 
-パイプラインで使用するラベルの定義。詳細は `haruvv/dev-agents` の `labels.yml` を参照。
+パイプラインで使用するラベルの定義。詳細は `labels.yml` を参照。
 
 ### Issue ラベル（ステート遷移）
 
@@ -89,7 +84,6 @@ requirements Worker が曖昧点を検知した場合、Issue に `waiting-for-a
 
 ## CI
 
-<!-- このリポジトリの CI 内容を記述する（テンプレート初期値） -->
 - PR 作成時および main push 時に actionlint による構文チェックが実行される
 - CI 失敗時は `haruvv/agent-intake` の Orchestrator が repair ジョブを自動投入する（最大3回）
 - repair 上限到達時は `needs-human` ラベルが付与され、自動処理が停止する
@@ -103,4 +97,5 @@ requirements Worker が曖昧点を検知した場合、Issue に `waiting-for-a
 - `docs/` 内の古い設計書・要件定義書（クローズ済み Issue に対応するもの）
 - `blocked` / `needs-human` 状態のまま放置された Issue
 - 未マージのまま長期間放置された `ai-generated` PR
-- このリポジトリ固有の制約（アーキテクチャ制約セクション）の鮮度
+- `docs/constraints.md` の鮮度（実装との整合性）
+- `docs/pipeline-learnings.md` への知見の反映状況
