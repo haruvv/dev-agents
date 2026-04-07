@@ -16,7 +16,9 @@ The Feature Implementation Workflow describes the development pipeline: research
 
 1. **Plan First**
    - Use **planner** agent to create implementation plan
-   - Generate planning docs before coding: PRD, architecture, system_design, tech_doc, task_list
+   - Write planning output (PRD, architecture, task breakdown) as **GitHub Issue comments**, NOT as files
+   - **NEVER create files under `docs/`** for app-specific requirements, design, or task plans
+   - `docs/` is reserved for shared cross-project knowledge (conventions, architecture guides, runbooks)
    - Identify dependencies and risks
    - Break down into phases
 
