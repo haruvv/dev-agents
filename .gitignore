@@ -3,3 +3,9 @@
 *.csv
 *.env
 .env*
+
+# Vite / Node
+node_modules/
+dist/
+dist-ssr/
+*.local
