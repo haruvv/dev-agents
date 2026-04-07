@@ -17,13 +17,16 @@ Worker はここに Issue 起票された要求を受け取り、要件整理・
 
 | ドキュメント | 内容 |
 |---|---|
-| `docs/<issue-number>-requirements.md` | 要件定義書（requirements Worker が生成） |
-| `docs/<issue-number>-design.md` | 設計書（design Worker が生成） |
-| `docs/requirements-template.md` | 要件定義書のフォーマット定義 |
-| `docs/design-template.md` | 設計書のフォーマット定義 |
+| Issue コメント `<!-- requirements-doc -->` | 要件定義書（requirements Worker が Issue コメントに投稿） |
+| Issue コメント `<!-- design-doc -->` | 設計書（design Worker が Issue コメントに投稿） |
 | `docs/constraints.md` | アーキテクチャ制約・禁止事項 |
 | `docs/pipeline-learnings.md` | パイプライン運用で得た知見の蓄積 |
 | `AGENTS.md`（本ファイル） | Worker 向け案内（入口） |
+
+### Worker 間ハンドオフ
+
+要件定義書・設計書は `docs/` ファイルではなく、**Issue コメントに投稿**する。
+後続 Worker はコメント一覧から `body.startsWith("<!-- {marker} -->")` のコメントを探す。
 
 ---
 
